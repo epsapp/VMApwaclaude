@@ -1,0 +1,882 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>VMA Tracker — Course de Durée</title>
+
+<!-- ═══ PWA META TAGS ═══ -->
+<meta name="application-name" content="VMA Tracker">
+<meta name="description" content="Suivi en temps réel de la vitesse en course de durée — EPS">
+<meta name="theme-color" content="#00e5ff">
+<meta name="background-color" content="#0a0c10">
+<meta name="mobile-web-app-capable" content="yes">
+
+<!-- Apple / iOS -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="VMA Tracker">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="apple-touch-startup-image" href="icons/icon-512.png">
+
+<!-- Manifest -->
+<link rel="manifest" href="manifest.json">
+
+<!-- Favicon -->
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;700&display=swap');
+
+  :root {
+    --bg: #0a0c10;
+    --surface: #12151c;
+    --surface2: #1a1f2b;
+    --border: #252b38;
+    --accent: #00e5ff;
+    --green: #00ff88;
+    --red: #ff2d55;
+    --yellow: #ffd700;
+    --text: #e8eaf0;
+    --muted: #5a6070;
+    --radius: 10px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; overflow-x: hidden; }
+
+  /* ══ HEADER ══ */
+  header {
+    display: flex; align-items: center; gap: 12px;
+    padding: 8px 18px; background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    position: sticky; top: 0; z-index: 200; height: 50px;
+  }
+  header h1 { font-family: 'Bebas Neue', sans-serif; font-size: 1.4rem; letter-spacing: 3px; color: var(--accent); white-space: nowrap; }
+  .step-indicator { display: flex; gap: 6px; margin-left: auto; }
+  .step-dot {
+    width: 26px; height: 26px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Bebas Neue', sans-serif; font-size: 0.85rem;
+    background: var(--surface2); border: 2px solid var(--border); color: var(--muted); transition: all 0.3s;
+  }
+  .step-dot.active { border-color: var(--accent); color: var(--accent); }
+  .step-dot.done { background: var(--accent); border-color: var(--accent); color: var(--bg); }
+  .btn-reset {
+    padding: 5px 12px; border-radius: 6px; border: 1px solid var(--border);
+    background: transparent; color: var(--muted);
+    font-family: 'Bebas Neue', sans-serif; font-size: 0.8rem; letter-spacing: 1px;
+    cursor: pointer; transition: all 0.2s; white-space: nowrap;
+  }
+  .btn-reset:hover { border-color: var(--red); color: var(--red); }
+
+  /* ══ SCREENS ══ */
+  .screen { display: none; padding: 16px 18px; max-width: 1000px; margin: 0 auto; }
+  .screen.active { display: block; }
+  #screen3.active { display: flex; flex-direction: column; padding: 0; max-width: 100%; }
+
+  /* ══ CARD ══ */
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; margin-bottom: 12px; }
+  .card h2 { font-family: 'Bebas Neue', sans-serif; font-size: 1.15rem; letter-spacing: 2px; color: var(--accent); margin-bottom: 12px; }
+
+  /* ══ FORM ══ */
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .form-grid.three { grid-template-columns: 1fr 1fr 1fr; }
+  .field { display: flex; flex-direction: column; gap: 4px; }
+  label { font-size: 0.68rem; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); }
+  input, select {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 7px; padding: 8px 11px; color: var(--text);
+    font-family: 'DM Mono', monospace; font-size: 0.9rem; width: 100%;
+    transition: border-color 0.2s; -webkit-appearance: none;
+  }
+  input:focus, select:focus { outline: none; border-color: var(--accent); }
+
+  /* ══ SERIES ROW ══ */
+  .series-row { display: flex; align-items: center; gap: 10px; background: var(--surface2); border-radius: 7px; padding: 8px 12px; margin-bottom: 6px; }
+  .series-label { font-family: 'Bebas Neue', sans-serif; font-size: 0.95rem; color: var(--accent); min-width: 58px; }
+
+  /* ══ BUTTONS ══ */
+  .btn { padding: 9px 18px; border-radius: 7px; border: none; cursor: pointer; font-family: 'Bebas Neue', sans-serif; font-size: 0.95rem; letter-spacing: 2px; transition: all 0.2s; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+  .btn-primary { background: var(--accent); color: var(--bg); }
+  .btn-primary:hover { background: #00c8e0; }
+  .btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+  .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-danger { background: var(--red); color: #fff; }
+  .btn-success { background: var(--green); color: var(--bg); }
+  .btn-warning { background: var(--yellow); color: var(--bg); }
+  .actions { display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
+
+  /* ══ RUNNER TABS ══ */
+  .runner-tabs { display: flex; margin-bottom: 12px; border-radius: var(--radius); overflow: hidden; border: 1px solid var(--border); }
+  .runner-tab { flex: 1; padding: 11px; text-align: center; cursor: pointer; font-family: 'Bebas Neue', sans-serif; font-size: 0.9rem; letter-spacing: 2px; background: var(--surface2); color: var(--muted); border: none; transition: all 0.2s; }
+  .runner-tab.active { background: var(--accent); color: var(--bg); }
+
+  /* ══════════════════════════════════════════════
+     SCREEN 3 — LAYOUT 2 COLONNES TABLETTE
+  ══════════════════════════════════════════════ */
+  .race-layout {
+    display: grid;
+    grid-template-columns: 310px 1fr;
+    height: calc(100vh - 50px);
+    overflow: hidden;
+  }
+
+  /* Colonne gauche */
+  .race-left {
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex; flex-direction: column;
+    padding: 10px 12px; gap: 7px;
+    overflow-y: auto;
+  }
+
+  /* Colonne droite */
+  .race-right { display: flex; flex-direction: column; overflow: hidden; background: var(--bg); }
+
+  /* Header coureur */
+  .runner-header { display: flex; align-items: center; gap: 8px; padding: 7px 12px; background: var(--surface2); border-bottom: 1px solid var(--border); flex-shrink: 0; }
+  .dot-live { width: 7px; height: 7px; border-radius: 50%; background: var(--green); flex-shrink: 0; animation: pulse 1.2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1}50%{opacity:0.3} }
+  .runner-name-big { font-family: 'Bebas Neue', sans-serif; font-size: 1.05rem; letter-spacing: 2px; color: var(--accent); }
+  .runner-meta { font-size: 0.7rem; color: var(--muted); margin-left: auto; font-family: 'DM Mono', monospace; }
+
+  /* Pills séries */
+  .series-pills-row { display: flex; gap: 5px; flex-wrap: wrap; padding: 6px 10px; border-bottom: 1px solid var(--border); flex-shrink: 0; background: var(--surface); }
+  .series-pill { padding: 2px 9px; border-radius: 12px; font-family: 'DM Mono', monospace; font-size: 0.7rem; background: var(--surface2); border: 1px solid var(--border); color: var(--muted); }
+  .series-pill.done { border-color: var(--green); color: var(--green); background: rgba(0,255,136,0.08); }
+  .series-pill.active { border-color: var(--accent); color: var(--accent); background: rgba(0,229,255,0.08); }
+
+  /* Zone tableau */
+  .table-zone { flex: 1; overflow: auto; padding: 8px 10px; }
+  .table-title { font-family: 'Bebas Neue', sans-serif; font-size: 0.9rem; letter-spacing: 1px; color: var(--muted); margin-bottom: 6px; }
+
+  /* Tableau passages */
+  table.passage { border-collapse: collapse; min-width: 100%; font-family: 'DM Mono', monospace; font-size: 0.85rem; }
+  table.passage th { background: var(--surface2); color: var(--muted); padding: 6px 14px; text-align: center; border: 1px solid var(--border); font-size: 0.68rem; letter-spacing: 1px; position: sticky; top: 0; z-index: 10; }
+  table.passage td { padding: 7px 14px; text-align: center; border: 1px solid var(--border); min-width: 80px; }
+  table.passage td.crossed { color: var(--accent); font-weight: 700; font-size: 1.15rem; }
+  table.passage td.marche { background: rgba(255,45,85,0.22); color: var(--red); }
+  table.passage td.col-active { background: rgba(0,229,255,0.05); }
+  table.passage th.col-active { background: rgba(0,229,255,0.15); color: var(--accent); }
+
+  /* ══ CONTRÔLES GAUCHE ══ */
+
+  /* Chrono */
+  .chrono-display { font-family: 'Bebas Neue', sans-serif; font-size: 3.8rem; letter-spacing: 5px; color: var(--accent); text-align: center; line-height: 1; }
+  .chrono-target { text-align: center; color: var(--muted); font-size: 0.72rem; margin-top: 2px; font-family: 'DM Mono', monospace; }
+  .chrono-bar-wrap { height: 5px; background: var(--surface2); border-radius: 3px; margin: 7px 0; overflow: hidden; }
+  .chrono-bar { height: 100%; background: var(--accent); transition: width 0.5s linear, background 0.3s; border-radius: 3px; width: 0%; }
+
+  /* Info boxes */
+  .info-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 5px; }
+  .info-box { background: var(--surface2); border-radius: 6px; padding: 7px 4px; text-align: center; border: 1px solid var(--border); }
+  .info-box .val { font-family: 'Bebas Neue', sans-serif; font-size: 1.1rem; letter-spacing: 1px; }
+  .info-box .lbl { font-size: 0.58rem; text-transform: uppercase; letter-spacing: 0.8px; color: var(--muted); margin-top: 1px; }
+  .val.green { color: var(--green); }
+  .val.red { color: var(--red); }
+  .val.yellow { color: var(--yellow); }
+  .val.accent { color: var(--accent); }
+
+  /* Feedback badge */
+  .feedback-badge { text-align: center; font-family: 'Bebas Neue', sans-serif; font-size: 1.3rem; letter-spacing: 2px; padding: 7px; border-radius: 7px; transition: all 0.3s; }
+  .feedback-badge.ok { background: rgba(0,255,136,0.15); color: var(--green); border: 1px solid var(--green); }
+  .feedback-badge.fast { background: rgba(255,45,85,0.15); color: var(--red); border: 1px solid var(--red); }
+  .feedback-badge.slow { background: rgba(255,215,0,0.15); color: var(--yellow); border: 1px solid var(--yellow); }
+  .feedback-badge.hidden { opacity: 0; border: 1px solid transparent; }
+
+  /* Plot button */
+  .btn-plot-wrap { display: flex; justify-content: center; margin: 5px 0; }
+  .btn-plot {
+    width: 110px; height: 110px; border-radius: 50%;
+    border: 3px solid var(--accent); background: var(--surface2); color: var(--accent);
+    font-family: 'Bebas Neue', sans-serif; font-size: 1rem; letter-spacing: 2px;
+    cursor: pointer; user-select: none; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 3px;
+    box-shadow: 0 0 20px rgba(0,229,255,0.1); transition: all 0.12s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .btn-plot:active { transform: scale(0.92); box-shadow: 0 0 40px rgba(0,229,255,0.5); background: rgba(0,229,255,0.12); }
+  .btn-plot.disabled { opacity: 0.3; pointer-events: none; }
+  .btn-plot svg { width: 26px; height: 26px; }
+
+  /* Marche */
+  .btn-marche {
+    flex: 1; padding: 9px 10px; border-radius: 7px; border: 2px solid var(--red);
+    background: transparent; color: var(--red); font-family: 'Bebas Neue', sans-serif;
+    font-size: 0.9rem; letter-spacing: 1px; cursor: pointer; transition: all 0.2s;
+    -webkit-tap-highlight-color: transparent; text-align: center;
+  }
+  .btn-marche.active { background: var(--red); color: #fff; }
+
+  /* Ctrl row */
+  .ctrl-row { display: flex; gap: 7px; align-items: stretch; }
+
+  /* Switch / finish */
+  .btn-full { width: 100%; justify-content: center; padding: 9px; border-radius: 7px; border: 1px solid var(--border); background: var(--surface2); color: var(--muted); font-family: 'Bebas Neue', sans-serif; font-size: 0.88rem; letter-spacing: 2px; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 6px; }
+  .btn-full:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-full.warn { border-color: var(--yellow); color: var(--yellow); }
+  .btn-full.warn:hover { background: var(--yellow); color: var(--bg); }
+
+  .divider { border: none; border-top: 1px solid var(--border); }
+
+  /* ══ RESULTS ══ */
+  .result-block { background: var(--surface2); border-radius: 8px; padding: 12px; margin-bottom: 10px; border-left: 4px solid var(--accent); }
+  .result-block h3 { font-family: 'Bebas Neue', sans-serif; font-size: 1.05rem; letter-spacing: 2px; margin-bottom: 8px; color: var(--accent); }
+  .tag { display: inline-block; padding: 2px 7px; border-radius: 12px; font-size: 0.67rem; font-weight: 700; letter-spacing: 1px; }
+  .tag-green { background: rgba(0,255,136,0.15); color: var(--green); }
+  .tag-red { background: rgba(255,45,85,0.15); color: var(--red); }
+  .tag-yellow { background: rgba(255,215,0,0.15); color: var(--yellow); }
+
+  /* ══ RESPONSIVE portrait ══ */
+  @media (max-width: 680px) {
+    .race-layout { grid-template-columns: 1fr; grid-template-rows: auto 1fr; height: auto; }
+    .race-left { border-right: none; border-bottom: 1px solid var(--border); }
+    .race-right { height: 55vh; }
+    .chrono-display { font-size: 3rem; }
+    .form-grid.three { grid-template-columns: 1fr 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div style="font-size:0.58rem;letter-spacing:2px;color:var(--muted);text-transform:uppercase">EPS — Course de Durée</div>
+    <h1>VMA Tracker</h1>
+  </div>
+  <button class="btn-reset" onclick="confirmReset()">↺ Recommencer</button>
+  <div class="step-indicator">
+    <div class="step-dot active" id="dot1">1</div>
+    <div class="step-dot" id="dot2">2</div>
+    <div class="step-dot" id="dot3">3</div>
+    <div class="step-dot" id="dot4">4</div>
+  </div>
+</header>
+
+<!-- ════ SCREEN 1 : CONFIG ════ -->
+<div class="screen active" id="screen1">
+  <div class="card">
+    <h2>⚙ Configuration de la Séance</h2>
+    <div class="form-grid three">
+      <div class="field">
+        <label>Distance piste (m)</label>
+        <input type="number" id="distPiste" value="400" min="50" step="10">
+      </div>
+      <div class="field">
+        <label>Distance entre plots (m)</label>
+        <select id="distPlots">
+          <option value="20">20 m</option>
+          <option value="25" selected>25 m</option>
+          <option value="30">30 m</option>
+          <option value="50">50 m</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Nom de la séance</label>
+        <input type="text" id="nomSeance" placeholder="ex: Séance 3 — Aérobie">
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <h2>🏃 Séries</h2>
+    <p style="color:var(--muted);font-size:0.78rem;margin-bottom:12px;">Durée obligatoirement multiple de <strong style="color:var(--accent)">1min30</strong>. Chaque tranche = 1 colonne dans le tableau.</p>
+    <div class="field" style="margin-bottom:12px;max-width:160px;">
+      <label>Nombre de séries</label>
+      <input type="number" id="nbSeries" value="3" min="1" max="10">
+    </div>
+    <div id="seriesInputs"></div>
+    <div class="actions">
+      <button class="btn btn-secondary" onclick="genSeries()">↺ Actualiser</button>
+      <button class="btn btn-primary" onclick="goStep2()">Suivant →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════ SCREEN 2 : PROFILS ════ -->
+<div class="screen" id="screen2">
+  <div class="runner-tabs">
+    <button class="runner-tab active" onclick="showRunnerSetup(0)">👤 Coureur 1</button>
+    <button class="runner-tab" onclick="showRunnerSetup(1)">👤 Coureur 2</button>
+  </div>
+  <div id="runner0Setup">
+    <div class="card">
+      <h2>Coureur 1 — Profil</h2>
+      <div class="form-grid">
+        <div class="field"><label>Prénom</label><input type="text" id="r0name" placeholder="Prénom"></div>
+        <div class="field"><label>VMA (km/h)</label><input type="number" id="r0vma" value="14" step="0.5" min="6" max="25" oninput="updateAllVmaPct(0)"></div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Projets de vitesse — Coureur 1</h2>
+      <p style="color:var(--muted);font-size:0.78rem;margin-bottom:10px;">Vitesse cible par 0,5 km/h pour chaque série.</p>
+      <div id="r0proj"></div>
+    </div>
+  </div>
+  <div id="runner1Setup" style="display:none">
+    <div class="card">
+      <h2>Coureur 2 — Profil</h2>
+      <div class="form-grid">
+        <div class="field"><label>Prénom</label><input type="text" id="r1name" placeholder="Prénom"></div>
+        <div class="field"><label>VMA (km/h)</label><input type="number" id="r1vma" value="12" step="0.5" min="6" max="25" oninput="updateAllVmaPct(1)"></div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Projets de vitesse — Coureur 2</h2>
+      <p style="color:var(--muted);font-size:0.78rem;margin-bottom:10px;">Vitesse cible par 0,5 km/h pour chaque série.</p>
+      <div id="r1proj"></div>
+    </div>
+  </div>
+  <div class="actions">
+    <button class="btn btn-secondary" onclick="goStep(0)">← Retour</button>
+    <button class="btn btn-primary" onclick="goStep3()">Suivant →</button>
+  </div>
+</div>
+
+<!-- ════ SCREEN 3 : COURSE ════ -->
+<div class="screen" id="screen3">
+  <div class="race-layout">
+
+    <!-- ─ GAUCHE ─ -->
+    <div class="race-left">
+      <!-- Coureur actif -->
+      <div style="display:flex;align-items:center;gap:7px;">
+        <div class="dot-live"></div>
+        <div class="runner-name-big" id="activeName">—</div>
+        <div class="runner-meta" id="serieLabel">S— / —</div>
+      </div>
+
+      <hr class="divider">
+
+      <!-- Chrono -->
+      <div class="chrono-display" id="chronoDisplay">00:00</div>
+      <div class="chrono-target" id="chronoTarget">Objectif : 00:00</div>
+      <div class="chrono-bar-wrap"><div class="chrono-bar" id="chronoBar"></div></div>
+
+      <!-- Stats -->
+      <div class="info-grid">
+        <div class="info-box"><div class="val accent" id="dispVitMoy">—</div><div class="lbl">Vit. col.</div></div>
+        <div class="info-box"><div class="val accent" id="dispVitCible">—</div><div class="lbl">Cible</div></div>
+        <div class="info-box"><div class="val accent" id="dispEcart">—</div><div class="lbl">Écart</div></div>
+      </div>
+
+      <!-- Feedback -->
+      <div class="feedback-badge hidden" id="feedbackBadge">—</div>
+
+      <hr class="divider">
+
+      <!-- Plot button -->
+      <div class="btn-plot-wrap">
+        <button class="btn-plot disabled" id="btnPlot" onclick="clickPlot()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+          PLOT
+        </button>
+      </div>
+
+      <!-- MARCHE + START -->
+      <div class="ctrl-row">
+        <button class="btn-marche" id="btnMarche" onclick="toggleMarche()">🚶 MARCHE</button>
+        <button class="btn btn-primary" id="btnStartStop" onclick="startStopSerie()" style="flex:1;justify-content:center;">▶ START</button>
+      </div>
+
+      <!-- Série suivante -->
+      <button class="btn btn-success" id="btnNextSerie" onclick="nextSerie()" style="display:none;width:100%;justify-content:center;">✓ Série suivante</button>
+
+      <hr class="divider">
+
+      <!-- Changer coureur -->
+      <button class="btn-full" onclick="switchRunner()" id="btnSwitch">↔ Changer de coureur</button>
+
+      <!-- Terminer -->
+      <button class="btn-full warn" onclick="goStep4()">📊 Terminer la séance</button>
+    </div>
+
+    <!-- ─ DROITE ─ -->
+    <div class="race-right">
+      <div class="runner-header">
+        <div class="dot-live" style="background:var(--accent)"></div>
+        <span class="runner-name-big" id="tableRunnerName">—</span>
+        <span class="runner-meta" id="tableSerieInfo">—</span>
+      </div>
+      <div class="series-pills-row" id="seriesPills"></div>
+      <div class="table-zone">
+        <div class="table-title" id="tableTitle">Tableau des passages</div>
+        <div id="tableWrap"><p style="color:var(--muted);text-align:center;padding:30px;font-size:0.85rem">En attente du premier passage…</p></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ════ SCREEN 4 : RÉSULTATS ════ -->
+<div class="screen" id="screen4">
+  <div class="card">
+    <h2>📊 Bilan de Séance</h2>
+    <div id="resultsContent"></div>
+  </div>
+  <div class="actions">
+    <button class="btn btn-primary" onclick="exportCSV()">⬇ CSV</button>
+    <button class="btn btn-secondary" onclick="exportXLS()">⬇ Excel</button>
+    <button class="btn btn-secondary" onclick="confirmReset()">↺ Nouvelle séance</button>
+  </div>
+</div>
+
+<script>
+// ══════════════════════
+//  STATE
+// ══════════════════════
+const S = {
+  distPiste:400, distPlots:25, nomSeance:'',
+  series:[], runners:[{name:'Coureur 1',vma:14,projets:[]},{name:'Coureur 2',vma:12,projets:[]}],
+  activeRunner:0, currentSerieIdx:0,
+  data:[[],[]], // [r][si] = {passages:[{t,col}], marcheSet:Set, colStarts:[]}
+  chronoInterval:null, chronoStart:null, chronoElapsed:0,
+  chronoRunning:false, chronoFinished:false,
+  colCount:0, marcheNext:false
+};
+
+function msToDur(ms){
+  const t=Math.floor(Math.max(ms,0)/1000),m=Math.floor(t/60),s=t%60;
+  return String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');
+}
+
+// ══════════════════════
+//  NAV
+// ══════════════════════
+function goStep(n){
+  document.querySelectorAll('.screen').forEach(e=>e.classList.remove('active'));
+  document.getElementById('screen'+(n+1)).classList.add('active');
+  document.querySelectorAll('.step-dot').forEach((d,i)=>{
+    d.classList.toggle('active',i===n);
+    d.classList.toggle('done',i<n);
+  });
+  window.scrollTo(0,0);
+}
+function confirmReset(){
+  if(confirm('Recommencer depuis le début ?\nToutes les données seront perdues.')) location.reload();
+}
+
+// ══════════════════════
+//  STEP 1
+// ══════════════════════
+function genSeries(){
+  const nb=parseInt(document.getElementById('nbSeries').value)||3;
+  const wrap=document.getElementById('seriesInputs');
+  wrap.innerHTML='';
+  for(let i=0;i<nb;i++){
+    const prev=S.series[i];
+    const defMin=prev?Math.floor(prev.dureeMs/60000):(i+1)*3;
+    const defSec=prev?Math.floor((prev.dureeMs%60000)/1000):0;
+    wrap.innerHTML+=`<div class="series-row">
+      <span class="series-label">S${i+1}</span>
+      <div class="field" style="flex:1"><label>Minutes</label><input type="number" id="sm${i}" value="${defMin}" min="1" step="1"></div>
+      <div class="field" style="flex:0 0 100px"><label>Secondes</label>
+        <select id="ss${i}"><option value="0" ${defSec===0?'selected':''}>00</option><option value="30" ${defSec===30?'selected':''}>30</option></select>
+      </div>
+      <div style="font-size:0.7rem;color:var(--muted);min-width:48px;text-align:right" id="sinfo${i}"></div>
+    </div>`;
+  }
+  for(let i=0;i<nb;i++){
+    ['sm','ss'].forEach(p=>document.getElementById(p+i).addEventListener('input',()=>updateSerieInfo(i)));
+    updateSerieInfo(i);
+  }
+}
+function updateSerieInfo(i){
+  const m=parseInt(document.getElementById('sm'+i).value)||0;
+  const s=parseInt(document.getElementById('ss'+i).value)||0;
+  const ms=(m*60+s)*1000;
+  const el=document.getElementById('sinfo'+i);
+  if(el) el.textContent=(ms>0&&ms%90000===0)?`${ms/90000} col`:'⚠ ×1:30';
+}
+function goStep2(){
+  const nb=parseInt(document.getElementById('nbSeries').value)||3;
+  const series=[];
+  for(let i=0;i<nb;i++){
+    const m=parseInt(document.getElementById('sm'+i).value)||0;
+    const s=parseInt(document.getElementById('ss'+i).value)||0;
+    const ms=(m*60+s)*1000;
+    if(ms<=0){alert(`Série ${i+1}: durée invalide`);return;}
+    if(ms%90000!==0){alert(`Série ${i+1}: doit être multiple de 1min30`);return;}
+    series.push({dureeMs:ms,nbCols:ms/90000});
+  }
+  S.series=series;
+  S.distPiste=parseInt(document.getElementById('distPiste').value)||400;
+  S.distPlots=parseInt(document.getElementById('distPlots').value)||25;
+  S.nomSeance=document.getElementById('nomSeance').value||'Séance';
+  S.data=[[],[]];
+  for(let r=0;r<2;r++) for(let i=0;i<nb;i++) S.data[r].push({passages:[],marcheSet:new Set(),colStarts:[]});
+  buildProjInputs();
+  goStep(1);
+}
+
+// ══════════════════════
+//  STEP 2
+// ══════════════════════
+function buildProjInputs(){
+  function speedOpts(sel){
+    let o='';
+    for(let v=4;v<=25.01;v+=0.5){
+      const val=v.toFixed(1);
+      o+=`<option value="${val}" ${sel&&Math.abs(parseFloat(sel)-v)<0.01?'selected':''}>${val}</option>`;
+    }
+    return o;
+  }
+  for(let r=0;r<2;r++){
+    const wrap=document.getElementById('r'+r+'proj');
+    wrap.innerHTML='';
+    S.series.forEach((s,i)=>{
+      const prev=S.runners[r].projets[i];
+      wrap.innerHTML+=`<div class="series-row">
+        <span class="series-label">S${i+1}</span>
+        <div style="color:var(--muted);font-size:0.72rem;min-width:50px">${msToDur(s.dureeMs)}</div>
+        <div class="field" style="flex:1"><label>Cible (km/h)</label>
+          <select id="r${r}p${i}" onchange="updateVmaPct(${r},${i})">${speedOpts(prev)}</select>
+        </div>
+        <div style="font-size:0.7rem;color:var(--muted);min-width:52px;text-align:right" id="r${r}ppct${i}"></div>
+      </div>`;
+    });
+    S.series.forEach((_,i)=>updateVmaPct(r,i));
+  }
+}
+function updateVmaPct(r,i){
+  const vma=parseFloat(document.getElementById('r'+r+'vma').value)||0;
+  const v=parseFloat(document.getElementById('r'+r+'p'+i).value)||0;
+  const el=document.getElementById('r'+r+'ppct'+i);
+  if(el&&vma>0&&v>0) el.textContent=Math.round(v/vma*100)+'%VMA';
+}
+function updateAllVmaPct(r){ S.series.forEach((_,i)=>updateVmaPct(r,i)); }
+function showRunnerSetup(r){
+  document.querySelectorAll('[id^="runner"]').forEach(e=>e.style.display='none');
+  document.getElementById('runner'+r+'Setup').style.display='block';
+  document.querySelectorAll('.runner-tab').forEach((t,i)=>t.classList.toggle('active',i===r));
+}
+function goStep3(){
+  for(let r=0;r<2;r++){
+    S.runners[r].name=document.getElementById('r'+r+'name').value||'Coureur '+(r+1);
+    S.runners[r].vma=parseFloat(document.getElementById('r'+r+'vma').value)||14;
+    S.runners[r].projets=[];
+    for(let i=0;i<S.series.length;i++) S.runners[r].projets.push(parseFloat(document.getElementById('r'+r+'p'+i).value));
+  }
+  const names=[S.runners[0].name,S.runners[1].name];
+  const choice=confirm(`Qui commence ?\n\nOK → ${names[0]}\nAnnuler → ${names[1]}`);
+  S.activeRunner=choice?0:1;
+  S.currentSerieIdx=0;
+  initCourse(); goStep(2);
+}
+
+// ══════════════════════
+//  COURSE
+// ══════════════════════
+function initCourse(){
+  S.chronoRunning=false; S.chronoFinished=false;
+  S.colCount=0; S.marcheNext=false;
+  clearInterval(S.chronoInterval); S.chronoInterval=null;
+  renderCourseUI();
+}
+function renderCourseUI(){
+  const r=S.activeRunner, si=S.currentSerieIdx;
+  const runner=S.runners[r], serie=S.series[si];
+  document.getElementById('activeName').textContent=runner.name;
+  document.getElementById('serieLabel').textContent=`S${si+1}/${S.series.length} · ${msToDur(serie.dureeMs)}`;
+  document.getElementById('tableRunnerName').textContent=runner.name;
+  document.getElementById('tableSerieInfo').textContent=`Série ${si+1} · Cible ${runner.projets[si]} km/h · Plots ${S.distPlots}m`;
+  document.getElementById('tableTitle').textContent=`Passages — ${runner.name} · S${si+1}/${S.series.length}`;
+
+  // pills
+  const pills=document.getElementById('seriesPills');
+  pills.innerHTML='';
+  S.series.forEach((_,i)=>{
+    const d0=S.data[0][i].passages.length>0, d1=S.data[1][i].passages.length>0;
+    const p=document.createElement('div');
+    p.className='series-pill'+(i===si?' active':(d0||d1?' done':''));
+    p.textContent='S'+(i+1)+(d0?'✓₁':'')+(d1?'✓₂':'');
+    pills.appendChild(p);
+  });
+
+  document.getElementById('dispVitCible').textContent=runner.projets[si]+' km/h';
+  document.getElementById('dispVitMoy').textContent='—';
+  document.getElementById('dispEcart').textContent='—';
+  document.getElementById('dispEcart').className='val accent';
+  document.getElementById('feedbackBadge').className='feedback-badge hidden';
+  S.chronoElapsed=0;
+  document.getElementById('chronoDisplay').textContent='00:00';
+  document.getElementById('chronoBar').style.width='0%';
+  document.getElementById('chronoTarget').textContent='Objectif : '+msToDur(serie.dureeMs);
+  document.getElementById('btnStartStop').textContent='▶ START';
+  document.getElementById('btnStartStop').className='btn btn-primary';
+  document.getElementById('btnNextSerie').style.display='none';
+  document.getElementById('btnMarche').classList.remove('active');
+  document.getElementById('btnPlot').classList.add('disabled');
+  document.getElementById('btnSwitch').disabled=false;
+  S.colCount=0; S.marcheNext=false;
+  renderTable();
+}
+
+// ══════════════════════
+//  CHRONO
+// ══════════════════════
+function startStopSerie(){
+  if(S.chronoFinished){finishSerie();return;}
+  if(!S.chronoRunning){
+    S.chronoRunning=true;
+    S.chronoStart=Date.now()-S.chronoElapsed;
+    const d=S.data[S.activeRunner][S.currentSerieIdx];
+    if(d.colStarts.length===0) d.colStarts.push(0);
+    document.getElementById('btnStartStop').textContent='⏸ PAUSE';
+    document.getElementById('btnStartStop').className='btn btn-danger';
+    document.getElementById('btnPlot').classList.remove('disabled');
+    document.getElementById('btnSwitch').disabled=true;
+    S.chronoInterval=setInterval(()=>{
+      S.chronoElapsed=Date.now()-S.chronoStart;
+      const serie=S.series[S.currentSerieIdx];
+      document.getElementById('chronoDisplay').textContent=msToDur(S.chronoElapsed);
+      const pct=Math.min(S.chronoElapsed/serie.dureeMs*100,100);
+      const bar=document.getElementById('chronoBar');
+      bar.style.width=pct+'%';
+      bar.style.background=pct>95?'var(--red)':pct>80?'var(--yellow)':'var(--accent)';
+      // auto-advance col
+      const d=S.data[S.activeRunner][S.currentSerieIdx];
+      const expectedCol=Math.min(Math.floor(S.chronoElapsed/90000),serie.nbCols-1);
+      if(expectedCol>S.colCount){
+        S.colCount=expectedCol;
+        while(d.colStarts.length<=S.colCount) d.colStarts.push(S.chronoElapsed);
+      }
+      if(S.chronoElapsed>=serie.dureeMs){
+        clearInterval(S.chronoInterval);
+        S.chronoRunning=false; S.chronoFinished=true;
+        S.chronoElapsed=serie.dureeMs;
+        document.getElementById('chronoDisplay').textContent=msToDur(serie.dureeMs);
+        document.getElementById('btnStartStop').textContent='✓ TERMINER';
+        document.getElementById('btnStartStop').className='btn btn-success';
+        document.getElementById('btnPlot').classList.add('disabled');
+      }
+    },100);
+  } else {
+    clearInterval(S.chronoInterval);
+    S.chronoRunning=false;
+    document.getElementById('btnStartStop').textContent='▶ REPRENDRE';
+    document.getElementById('btnStartStop').className='btn btn-primary';
+    document.getElementById('btnPlot').classList.add('disabled');
+  }
+}
+function finishSerie(){
+  S.chronoFinished=false;
+  document.getElementById('btnNextSerie').style.display='flex';
+  document.getElementById('btnSwitch').disabled=false;
+}
+
+// ══════════════════════
+//  PLOT
+// ══════════════════════
+function toggleMarche(){
+  S.marcheNext=!S.marcheNext;
+  document.getElementById('btnMarche').classList.toggle('active',S.marcheNext);
+}
+function clickPlot(){
+  if(!S.chronoRunning) return;
+  const now=S.chronoElapsed;
+  const r=S.activeRunner, si=S.currentSerieIdx;
+  const d=S.data[r][si];
+  const vitCible=S.runners[r].projets[si];
+  while(d.colStarts.length<=S.colCount) d.colStarts.push(now);
+  const idx=d.passages.length;
+  d.passages.push({t:now,col:S.colCount});
+  if(S.marcheNext) d.marcheSet.add(idx);
+  S.marcheNext=false;
+  document.getElementById('btnMarche').classList.remove('active');
+  // calc speed
+  const colPassages=d.passages.filter(p=>p.col===S.colCount);
+  const colStart=d.colStarts[S.colCount]||0;
+  const colElapsed=now-colStart;
+  if(colElapsed>300 && colPassages.length>0){
+    const vitMoy=colPassages.length*S.distPlots/(colElapsed/1000)*3.6;
+    const ecart=vitMoy-vitCible;
+    document.getElementById('dispVitMoy').textContent=vitMoy.toFixed(1)+' km/h';
+    document.getElementById('dispEcart').textContent=(ecart>=0?'+':'')+ecart.toFixed(1);
+    const fb=document.getElementById('feedbackBadge');
+    if(Math.abs(ecart)<=0.5){
+      fb.className='feedback-badge ok'; fb.textContent='✓ DANS LA ZONE';
+      document.getElementById('dispEcart').className='val green';
+    } else if(ecart>0.5){
+      fb.className='feedback-badge fast'; fb.textContent='⚡ TROP RAPIDE';
+      document.getElementById('dispEcart').className='val red';
+    } else {
+      fb.className='feedback-badge slow'; fb.textContent='🐢 TROP LENT';
+      document.getElementById('dispEcart').className='val yellow';
+    }
+  }
+  renderTable();
+}
+
+// ══════════════════════
+//  TABLE
+// ══════════════════════
+function renderTable(){
+  const r=S.activeRunner, si=S.currentSerieIdx;
+  const serie=S.series[si], d=S.data[r][si];
+  const nbCols=serie.nbCols, wrap=document.getElementById('tableWrap');
+  if(d.passages.length===0){
+    wrap.innerHTML='<p style="color:var(--muted);text-align:center;padding:30px;font-size:0.82rem">En attente du premier passage…</p>';
+    return;
+  }
+  const colGroups=[];
+  for(let c=0;c<nbCols;c++) colGroups.push(d.passages.filter(p=>p.col===c));
+  const maxRows=Math.max(...colGroups.map(g=>g.length),1);
+  let html='<table class="passage"><thead><tr><th style="min-width:40px">Plot</th>';
+  for(let c=0;c<nbCols;c++) html+=`<th class="${c===S.colCount?'col-active':''}">Col.${c+1}<br><small>${msToDur(c*90000)}–${msToDur((c+1)*90000)}</small></th>`;
+  html+='</tr></thead><tbody>';
+  for(let row=maxRows-1;row>=0;row--){
+    html+=`<tr><td style="color:var(--muted);font-size:0.75rem">${row+1}</td>`;
+    for(let c=0;c<nbCols;c++){
+      const p=colGroups[c][row];
+      const act=c===S.colCount;
+      if(p){
+        const isMar=d.marcheSet.has(d.passages.indexOf(p));
+        html+=`<td class="${isMar?'marche':'crossed'}${act?' col-active':''}">${isMar?'🚶':'✕'}</td>`;
+      } else {
+        html+=`<td class="${act?'col-active':''}"></td>`;
+      }
+    }
+    html+='</tr>';
+  }
+  html+='</tbody></table>';
+  wrap.innerHTML=html;
+}
+
+// ══════════════════════
+//  SWITCH / NEXT
+// ══════════════════════
+function nextSerie(){
+  if(S.currentSerieIdx<S.series.length-1){
+    S.currentSerieIdx++;
+    document.getElementById('btnNextSerie').style.display='none';
+    S.chronoElapsed=0; S.chronoFinished=false;
+    initCourse();
+  } else {
+    alert('Toutes les séries terminées pour '+S.runners[S.activeRunner].name+' !');
+  }
+}
+function switchRunner(){
+  if(S.chronoRunning){alert('Mettez en pause avant de changer de coureur.');return;}
+  S.activeRunner=S.activeRunner===0?1:0;
+  let next=S.series.length-1;
+  for(let i=0;i<S.series.length;i++){if(S.data[S.activeRunner][i].passages.length===0){next=i;break;}}
+  S.currentSerieIdx=next;
+  S.chronoElapsed=0; S.chronoFinished=false;
+  initCourse();
+}
+
+// ══════════════════════
+//  RÉSULTATS
+// ══════════════════════
+function goStep4(){
+  if(S.chronoRunning){alert('Terminez la série en cours.');return;}
+  renderResults(); goStep(3);
+}
+function renderResults(){
+  const wrap=document.getElementById('resultsContent');
+  let html=`<p style="color:var(--muted);margin-bottom:14px;font-size:0.8rem">${S.nomSeance} · Piste ${S.distPiste}m · Plots ${S.distPlots}m</p>`;
+  for(let r=0;r<2;r++){
+    const runner=S.runners[r];
+    html+=`<div class="result-block"><h3>${runner.name} — VMA ${runner.vma} km/h</h3>`;
+    S.series.forEach((serie,si)=>{
+      const d=S.data[r][si];
+      if(d.passages.length===0){html+=`<div style="padding:4px 0;color:var(--muted);font-size:0.78rem">S${si+1}: pas de données</div>`;return;}
+      const dist=d.passages.length*S.distPlots;
+      const vitMoy=dist/(serie.dureeMs/1000)*3.6;
+      const cible=runner.projets[si], ecart=vitMoy-cible, zone=Math.abs(ecart)<=0.5;
+      html+=`<div style="margin:5px 0;padding:7px;background:var(--bg);border-radius:6px;display:flex;gap:9px;flex-wrap:wrap;align-items:center;font-size:0.82rem">
+        <span style="font-family:'Bebas Neue',sans-serif;color:var(--accent)">S${si+1}</span>
+        <span style="color:var(--muted)">${msToDur(serie.dureeMs)}</span>
+        <span>${d.passages.length} plots · ${dist}m</span>
+        <span>Vit: <b style="color:${zone?'var(--green)':ecart>0.5?'var(--red)':'var(--yellow)'}">${vitMoy.toFixed(1)} km/h</b></span>
+        <span>Cible: ${cible} km/h (${Math.round(cible/runner.vma*100)}%VMA)</span>
+        <span class="tag ${zone?'tag-green':ecart>0.5?'tag-red':'tag-yellow'}">${zone?'✓ ZONE':ecart>0.5?'⚡ RAPIDE':'🐢 LENT'}</span>
+        ${d.marcheSet.size>0?`<span class="tag tag-red">🚶 ${d.marcheSet.size}</span>`:''}
+      </div>`;
+    });
+    html+='</div>';
+  }
+  wrap.innerHTML=html;
+}
+
+// ══════════════════════
+//  EXPORT
+// ══════════════════════
+function buildCSV(){
+  const rows=[['Séance',S.nomSeance,'Piste',S.distPiste+'m','Plots',S.distPlots+'m'],[]];
+  for(let r=0;r<2;r++){
+    const runner=S.runners[r];
+    rows.push([runner.name,'VMA '+runner.vma+' km/h']);
+    rows.push(['Série','Durée','Cible (km/h)','%VMA','Passages','Distance (m)','Vit moy (km/h)','Écart','Zone?','Marches']);
+    S.series.forEach((serie,si)=>{
+      const d=S.data[r][si], dist=d.passages.length*S.distPlots;
+      const vitMoy=serie.dureeMs>0?(dist/(serie.dureeMs/1000)*3.6):0;
+      const cible=runner.projets[si], ecart=(vitMoy-cible).toFixed(1);
+      rows.push([`S${si+1}`,msToDur(serie.dureeMs),cible,Math.round(cible/runner.vma*100)+'%',d.passages.length,dist,vitMoy.toFixed(1),ecart,Math.abs(vitMoy-cible)<=0.5?'OUI':'NON',d.marcheSet.size]);
+    });
+    rows.push(['','Détail passages']);
+    S.series.forEach((_,si)=>{
+      const d=S.data[r][si];
+      if(d.passages.length>0) rows.push([`S${si+1}`,...d.passages.map((p,i)=>`t=${msToDur(p.t)} col=${p.col+1}${d.marcheSet.has(i)?'[M]':''}`)]);
+    });
+    rows.push([]);
+  }
+  return rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+}
+function exportCSV(){
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob(['\uFEFF'+buildCSV()],{type:'text/csv;charset=utf-8'}));
+  a.download=`VMA_${S.nomSeance.replace(/\s+/g,'_')}_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+}
+function exportXLS(){
+  const csv=buildCSV();
+  let html='<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="UTF-8"></head><body><table border="1">';
+  csv.split('\n').forEach(line=>{
+    html+='<tr>';
+    line.split(',').forEach(c=>{ html+=`<td>${c.replace(/^"|"$/g,'').replace(/""/g,'"')}</td>`; });
+    html+='</tr>';
+  });
+  html+='</table></body></html>';
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([html],{type:'application/vnd.ms-excel;charset=utf-8'}));
+  a.download=`VMA_${S.nomSeance.replace(/\s+/g,'_')}_${new Date().toISOString().slice(0,10)}.xls`;
+  a.click();
+}
+
+// BOOT
+genSeries();
+</script>
+
+<!-- ═══ SERVICE WORKER + BANNIÈRE MISE À JOUR ═══ -->
+<div id="swUpdateBanner" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:9999;background:#1a1f2b;border-top:2px solid #00e5ff;padding:10px 18px;align-items:center;gap:12px;font-family:DM Sans,sans-serif;font-size:0.85rem;color:#e8eaf0;">
+  <span style="flex:1">🔄 Nouvelle version disponible.</span>
+  <button onclick="swUpdateNow()" style="padding:6px 16px;border-radius:6px;border:none;cursor:pointer;background:#00e5ff;color:#0a0c10;font-family:Bebas Neue,sans-serif;font-size:0.9rem;letter-spacing:2px;">METTRE À JOUR</button>
+  <button onclick="document.getElementById('swUpdateBanner').style.display='none'" style="padding:6px 12px;border-radius:6px;border:1px solid #252b38;cursor:pointer;background:transparent;color:#5a6070;">✕</button>
+</div>
+
+<script>
+let swNewWorker=null;
+function swUpdateNow(){if(swNewWorker)swNewWorker.postMessage({type:'SKIP_WAITING'});}
+if('serviceWorker' in navigator){
+  window.addEventListener('load',()=>{
+    navigator.serviceWorker.register('./service-worker.js')
+      .then(reg=>{
+        console.log('[SW] Enregistré:',reg.scope);
+        reg.addEventListener('updatefound',()=>{
+          swNewWorker=reg.installing;
+          swNewWorker.addEventListener('statechange',()=>{
+            if(swNewWorker.state==='installed'&&navigator.serviceWorker.controller){
+              document.getElementById('swUpdateBanner').style.display='flex';
+            }
+          });
+        });
+        navigator.serviceWorker.addEventListener('controllerchange',()=>window.location.reload());
+      })
+      .catch(e=>console.warn('[SW] Erreur:',e));
+  });
+}
+</script>
+</body>
+</html>

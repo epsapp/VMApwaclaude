@@ -1,0 +1,41 @@
+{
+  "name": "VMA Tracker — Course de Durée",
+  "short_name": "VMA Tracker",
+  "description": "Application EPS pour le suivi en temps réel de la vitesse en course de durée. Chronomètre, tableau des passages par plot, feedback zone/trop rapide/trop lent, export CSV et Excel.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "landscape",
+  "background_color": "#0a0c10",
+  "theme_color": "#00e5ff",
+  "lang": "fr",
+  "categories": ["education", "sports", "health"],
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "screenshots": [],
+  "prefer_related_applications": false
+}
